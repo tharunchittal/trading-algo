@@ -1,0 +1,2 @@
+pip install yfinance pandas
+python papertrade_and_backtest_hourly_points.py --symbol AAPL --start 2024-01-01 --end 2024-03-01 --initial-cash 10000 --fee-rate 0.001 --slippage-bps 5 --execute-next-bar --out-csv ledger.csv
