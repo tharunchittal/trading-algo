@@ -207,9 +207,9 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     atr = _atr(df, 14)
     feat["atr_ratio"] = atr / (close + 1e-9)
 
-    # 52-week position
-    high52 = close.rolling(252).max()
-    low52 = close.rolling(252).min()
+    # 52-week position (use min_periods=1 so partial windows don't become NaN)
+    high52 = close.rolling(252, min_periods=1).max()
+    low52 = close.rolling(252, min_periods=1).min()
     feat["week52_pos"] = (close - low52) / (high52 - low52 + 1e-9)
 
     # Trend slope (linear regression slope over last 20 bars, normalised)
@@ -581,32 +581,32 @@ def cmd_train(args):
     if args.device not in ("auto", "cpu"):
         device = args.device
 
-    print(f"\n{'='*60}")
-    print(f"DQN Trading Agent – Training Run")
-    print(f"{'='*60}")
-    print(f"Tickers  : {', '.join(tickers)}")
-    print(f"History  : {args.start} → {args.end}")
-    print(f"Train hrs: {args.train_hours:.1f}h  (≈{args.train_hours*3600:.0f}s)")
-    print(f"Device   : {device}")
-    print(f"Model out: {args.model_path}")
-    print()
+    print(f"\n{'='*60}", flush=True)
+    print(f"DQN Trading Agent – Training Run", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"Tickers  : {', '.join(tickers)}", flush=True)
+    print(f"History  : {args.start} → {args.end}", flush=True)
+    print(f"Train hrs: {args.train_hours:.1f}h  (≈{args.train_hours*3600:.0f}s)", flush=True)
+    print(f"Device   : {device}", flush=True)
+    print(f"Model out: {args.model_path}", flush=True)
+    print(flush=True)
 
     # ------------------------------------------------------------------
     # Download & prepare all ticker data
     # ------------------------------------------------------------------
-    print("Downloading & preparing data (caching enabled)…")
+    print("Downloading & preparing data (caching enabled)…", flush=True)
     ticker_data: List[Tuple[pd.DataFrame, pd.Series]] = []
     for sym in tickers:
         result = prepare_ticker_data(sym, args.start, args.end)
         if result is not None:
             ticker_data.append(result)
-            print(f"  ✓ {sym}: {len(result[0])} bars")
+            print(f"  ✓ {sym}: {len(result[0])} bars", flush=True)
 
     if not ticker_data:
-        print("ERROR: No usable data. Check your tickers and internet connection.")
+        print("ERROR: No usable data. Check your tickers and internet connection.", flush=True)
         sys.exit(1)
 
-    print(f"\n{len(ticker_data)}/{len(tickers)} tickers ready.\n")
+    print(f"\n{len(ticker_data)}/{len(tickers)} tickers ready.\n", flush=True)
 
     # Determine state dim from first ticker
     sample_feat, _ = ticker_data[0]
@@ -616,11 +616,11 @@ def cmd_train(args):
     # Initialise agent (or resume from existing model)
     # ------------------------------------------------------------------
     if os.path.exists(args.model_path) and not args.reset:
-        print(f"Resuming from checkpoint: {args.model_path}")
+        print(f"Resuming from checkpoint: {args.model_path}", flush=True)
         agent = DQNAgent.load(args.model_path, device=device)
         # Verify state_dim matches
         if agent.policy_net.net[0].in_features != state_dim:
-            print("WARNING: Checkpoint state_dim mismatch – starting fresh.")
+            print("WARNING: Checkpoint state_dim mismatch – starting fresh.", flush=True)
             agent = DQNAgent(state_dim=state_dim, device=device)
     else:
         agent = DQNAgent(state_dim=state_dim, device=device)
@@ -633,7 +633,7 @@ def cmd_train(args):
     best_return = -np.inf
     print_every = 50  # episodes between progress prints
 
-    print(f"Training for {args.train_hours:.1f} hours… (Ctrl-C to stop early)\n")
+    print(f"Training for {args.train_hours:.1f} hours… (Ctrl-C to stop early)\n", flush=True)
 
     try:
         while time.time() < deadline:
@@ -685,20 +685,21 @@ def cmd_train(args):
                     f"loss {avg_loss:.5f} | "
                     f"buf {len(agent.buffer):>7d} | "
                     f"elapsed {elapsed/60:.1f}m | "
-                    f"left {remaining/60:.1f}m"
+                    f"left {remaining/60:.1f}m",
+                    flush=True,
                 )
 
     except KeyboardInterrupt:
-        print("\nTraining interrupted by user.")
+        print("\nTraining interrupted by user.", flush=True)
 
     # Final save
     agent.save(args.model_path)
     elapsed_total = time.time() - (deadline - args.train_hours * 3600.0)
-    print(f"\n{'='*60}")
-    print(f"Training complete: {episode} episodes in {elapsed_total/60:.1f} minutes")
-    print(f"Best episode return: {best_return:+.2%}")
-    print(f"Model saved to: {args.model_path}")
-    print(f"{'='*60}\n")
+    print(f"\n{'='*60}", flush=True)
+    print(f"Training complete: {episode} episodes in {elapsed_total/60:.1f} minutes", flush=True)
+    print(f"Best episode return: {best_return:+.2%}", flush=True)
+    print(f"Model saved to: {args.model_path}", flush=True)
+    print(f"{'='*60}\n", flush=True)
 
 
 # ---------------------------------------------------------------------------
