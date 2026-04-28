@@ -1,2 +1,116 @@
 pip install yfinance pandas
-python papertrade_and_backtest_hourly_points.py --symbol AAPL --start 2024-01-01 --end 2024-03-01 --initial-cash 10000 --fee-rate 0.001 --slippage-bps 5 --execute-next-bar --out-csv ledger.csv
+
+# Set your free-tier Finnhub token once per shell session.
+export FINNHUB_API_KEY="YOUR_FINNHUB_TOKEN"
+
+# Headline sentiment strategy (Finnhub + Yahoo Finance RSS, with caching).
+python google_trends_trading_bot.py \
+	--symbol AAPL \
+	--start 2024-01-01 \
+	--end 2025-12-31 \
+	--initial-cash 10000 \
+	--order-usd 1000 \
+	--entry-sentiment 0.15 \
+	--exit-sentiment -0.15 \
+	--sentiment-window 3 \
+	--min-headlines 1 \
+	--out-csv trends_ledger_AAPL_headline_sentiment.csv
+
+# Optional: RSS-only mode (when Finnhub quota is exhausted).
+# python google_trends_trading_bot.py --symbol AAPL --start 2024-01-01 --end 2025-12-31 --disable-finnhub
+
+# Stage 1 live paper trading (event-driven, default 15-minute cadence).
+python live_headline_paper_trader.py \
+	--symbol AAPL \
+	--initial-cash 10000 \
+	--order-usd 500 \
+	--entry-sentiment 0.20 \
+	--exit-sentiment -0.20 \
+	--event-window 20 \
+	--min-headlines 1 \
+	--poll-seconds 900 \
+	--cooldown-minutes 30 \
+	--fee-rate 0.0005 \
+	--slippage-bps 5 \
+	--max-position-usd 3000 \
+	--out-csv live_ledger_AAPL_headline_sentiment.csv
+
+# Quick smoke test (RSS-only, one cycle).
+# python live_headline_paper_trader.py --symbol AAPL --disable-finnhub --max-cycles 1 --poll-seconds 30
+# Backtest: historical headline sentiment (cached Finnhub + RSS data).
+python backtest_headline_sentiment.py \
+  --symbol AAPL \
+  --start 2024-01-01 \
+  --end 2026-03-31 \
+  --initial-cash 10000 \
+  --order-usd 1000 \
+  --entry-sentiment 0.20 \
+  --exit-sentiment -0.20 \
+  --event-window 20 \
+  --cooldown-minutes 30 \
+  --fee-rate 0.0005 \
+  --slippage-bps 5 \
+  --max-position-usd 3000 \
+  --out-csv backtest_AAPL_headline_sentiment_2y.csv
+
+# Backtest: RSS-only (when Finnhub not available or to test RSS robustness).
+# python backtest_headline_sentiment.py --symbol AAPL --start 2024-01-01 --end 2026-03-31 --disable-finnhub --out-csv backtest_AAPL_rss_only.csv
+
+# Backtest: different symbol and parameter sweep (tighter entry/exit).
+# python backtest_headline_sentiment.py --symbol TSLA --start 2024-01-01 --end 2026-03-31 --entry-sentiment 0.30 --exit-sentiment -0.30 --event-window 10
+# Hybrid backtest: buy quiet trends (low Google Trends), sell positive headlines + trend peak.
+# Adjustable for trade frequency: smaller order_usd, smaller cooldown_minutes for more trades.
+python backtest_hybrid_trends_headlines.py \
+  --symbol AAPL \
+  --keyword iphone \
+  --start 2024-01-01 \
+  --end 2026-03-31 \
+  --initial-cash 10000 \
+  --order-usd 500 \
+  --entry-trend-z 0.0 \
+  --exit-trend-z 0.0 \
+  --exit-sentiment 0.1 \
+  --event-window 10 \
+  --cooldown-minutes 5 \
+  --fee-rate 0.0005 \
+  --slippage-bps 5 \
+  --max-position-usd 2500 \
+  --out-csv backtest_hybrid_AAPL_quiet_to_peak.csv
+
+# High-frequency variant (40+ trades).
+# python backtest_hybrid_trends_headlines.py --symbol AAPL --keyword iphone --start 2024-01-01 --end 2026-03-31 --order-usd 250 --cooldown-minutes 2 --entry-trend-z 0.5 --exit-trend-z -0.5 --exit-sentiment 0.0 --out-csv backtest_hybrid_AAPL_high_freq.csv
+
+# Stock screener: find small-cap tech with huge upside potential.
+python stock_screener.py \
+  --min-market-cap 100000000 \
+  --max-market-cap 5000000000 \
+  --min-avg-volume 500000 \
+  --min-revenue-growth -0.1 \
+  --max-pe-ratio 100 \
+  --min-beta 0.5 \
+  --max-beta 3.0 \
+  --weight-growth 0.4 \
+  --weight-volatility 0.25 \
+  --weight-valuation 0.2 \
+  --weight-size 0.15 \
+  --out-csv screener_upside_candidates.csv
+
+# Growth-focused variant (smaller max market cap, emphasize revenue growth).
+# python stock_screener.py --min-market-cap 50000000 --max-market-cap 2000000000 --weight-growth 0.5 --weight-volatility 0.2 --weight-valuation 0.15 --weight-size 0.15 --out-csv screener_growth_focused.csv
+
+# Custom symbol list.
+# python stock_screener.py --symbols "GEVO,UPST,FSLY,SOFI" --out-csv screener_custom_watchlist.csv
+
+# Backtest 1-year performance of screener's top candidates (equal-weight portfolio).
+python backtest_screener_portfolio.py \
+  --symbols "GEVO,FSLY,UPST" \
+  --start 2025-03-31 \
+  --end 2026-03-31 \
+  --initial-cash 10000 \
+  --out-csv backtest_screener_1year_equal_weight.csv
+
+# Single-stock backtest (higher risk/reward).
+# python backtest_screener_portfolio.py --symbols "GEVO" --start 2025-03-31 --end 2026-03-31 --initial-cash 10000 --out-csv backtest_screener_GEVO_single.csv
+
+# 2-stock backtest.
+# python backtest_screener_portfolio.py --symbols "FSLY,UPST" --start 2025-03-31 --end 2026-03-31 --initial-cash 10000 --out-csv backtest_screener_2stock.csv
