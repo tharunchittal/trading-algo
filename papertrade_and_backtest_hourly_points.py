@@ -45,7 +45,11 @@ def download_hourly(symbol: str, start: str, end: str) -> pd.Series:
     if df is None or df.empty:
         raise RuntimeError("No data returned. Try a shorter date range (Yahoo 1h history is limited).")
     df = df.sort_index()
-    closes = df["Close"].astype(float)
+    # yfinance ≥0.2 returns MultiIndex columns (field, ticker); squeeze to a plain Series.
+    raw_close = df["Close"]
+    if isinstance(raw_close, pd.DataFrame):
+        raw_close = raw_close.iloc[:, 0]
+    closes = raw_close.astype(float).squeeze()
     if len(closes) < 4:
         raise RuntimeError("Not enough hourly bars returned for backtest.")
     return closes
